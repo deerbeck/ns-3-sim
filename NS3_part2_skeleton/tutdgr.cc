@@ -254,7 +254,6 @@ main(int argc, char* argv[])
             Ptr<OutputStreamWrapper> streamRtt = asciiTraceHelper.CreateFileStream(fname_rtt.str());
 
             std::cout << "Create RTT trace file: " << fname_rtt.str() << std::endl;
-            // Connect the trace source for RTT to the TraceRtt function
             app.Get(0)->TraceConnectWithoutContext("Rtt", MakeBoundCallback(&TraceRtt, streamRtt));
 
             //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
