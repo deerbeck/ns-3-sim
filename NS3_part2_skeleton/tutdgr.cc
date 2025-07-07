@@ -23,10 +23,10 @@ using namespace ns3;
 NS_LOG_COMPONENT_DEFINE("SimpleGlobalRoutingExample");
 
 void
-TraceRtt(std::ostream* os, unsigned short packetSize, Time rtt)
+TraceRtt(Ptr<OutputStreamWrapper> stream, unsigned short packetSize, Time rtt)
 {
-    *os << Simulator::Now().GetSeconds() << "\t" << packetSize << " bytes\t"
-        << rtt.GetMilliSeconds() << " ms" << std::endl;
+    *stream->GetStream() << Simulator::Now().GetSeconds() << "\t" << packetSize << " bytes\t"
+                         << rtt.GetMilliSeconds() << " ms" << std::endl;
 }
 
 int
@@ -242,7 +242,7 @@ main(int argc, char* argv[])
         {
             //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Your code goes here
             std::cout << "Create Ping application from " << u << " to " << v << std::endl;
-            PingHelper ping(out_iface[v].GetAddress(1));
+            PingHelper ping(out_iface[v].GetAddress(0));
 
             ping.SetAttribute("StartTime", TimeValue(Seconds(j_flows[i]["StartTime"].asDouble())));
             ping.SetAttribute("StopTime", TimeValue(Seconds(j_flows[i]["StopTime"].asDouble())));
@@ -255,9 +255,7 @@ main(int argc, char* argv[])
 
             std::cout << "Create RTT trace file: " << fname_rtt.str() << std::endl;
             // Connect the trace source for RTT to the TraceRtt function
-            app.Get(0)->TraceConnectWithoutContext(
-                "Rtt",
-                MakeBoundCallback(&TraceRtt, streamRtt->GetStream()));
+            app.Get(0)->TraceConnectWithoutContext("Rtt", MakeBoundCallback(&TraceRtt, streamRtt));
 
             //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
         }
@@ -297,6 +295,11 @@ main(int argc, char* argv[])
                             &Ipv4::SetUp,
                             node_map[v]->GetObject<Ipv4>(),
                             iface_nums[v][u]);
+
+        Simulator::Schedule(Seconds(startTime + 0.000001),
+                            &Ipv4GlobalRoutingHelper::RecomputeRoutingTables);
+        Simulator::Schedule(Seconds(stopTime + 0.000001),
+                            &Ipv4GlobalRoutingHelper::RecomputeRoutingTables);
         //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     }
 
@@ -308,7 +311,7 @@ main(int argc, char* argv[])
 
     std::cout << "Run simulation" << std::endl;
     NS_LOG_INFO("Run Simulation.");
-    Simulator::Stop(Seconds(300));
+    Simulator::Stop(Seconds(400));
     Simulator::Run();
     NS_LOG_INFO("Done.");
 
@@ -316,7 +319,7 @@ main(int argc, char* argv[])
      * Configure flow monitor to write output to xml file
      */
     //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Your code goes here
-    flowmonHelper.SerializeToXmlFile("output/flow-monitor-output.xml", true, true);
+    flowmonHelper.SerializeToXmlFile("output/dgr/flow-monitor-output.xml", true, true);
     //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     Simulator::Destroy();
