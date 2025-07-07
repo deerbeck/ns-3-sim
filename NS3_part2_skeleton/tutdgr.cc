@@ -242,15 +242,13 @@ main(int argc, char* argv[])
         {
             //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Your code goes here
             std::cout << "Create Ping application from " << u << " to " << v << std::endl;
-            PingHelper ping(out_iface[v].GetAddress(0),
-                            node_map[u]->GetObject<Ipv4>()->GetAddress(1, 0).GetLocal());
+            PingHelper ping(out_iface[v].GetAddress(1));
 
             ping.SetAttribute("StartTime", TimeValue(Seconds(j_flows[i]["StartTime"].asDouble())));
             ping.SetAttribute("StopTime", TimeValue(Seconds(j_flows[i]["StopTime"].asDouble())));
             ApplicationContainer app = ping.Install(node_map[u]);
 
             std::stringstream fname_rtt;
-
             fname_rtt << "output/dgr/" << key.str() << ".rtt";
             AsciiTraceHelper asciiTraceHelper;
             Ptr<OutputStreamWrapper> streamRtt = asciiTraceHelper.CreateFileStream(fname_rtt.str());
@@ -280,20 +278,25 @@ main(int argc, char* argv[])
         std::stringstream key;
         key << u << v;
 
-        std::cout << "Schedule failure from " << u << " to " << v << " at " << startTime << "s for "
-                  << stopTime - startTime << "s" << std::endl;
-        std::cout << device_map[key.str()].Get(0)->GetNode()->GetId() << std::endl;
         Simulator::Schedule(Seconds(startTime),
-                            &NetDevice::SetAttribute,
-                            device_map[key.str()].Get(0),
-                            "ReceiveErrorModel",
-                            PointerValue(CreateObject<RateErrorModel>()));
+                            &Ipv4::SetDown,
+                            node_map[u]->GetObject<Ipv4>(),
+                            iface_nums[u][v]);
+
+        Simulator::Schedule(Seconds(startTime),
+                            &Ipv4::SetDown,
+                            node_map[v]->GetObject<Ipv4>(),
+                            iface_nums[v][u]);
 
         Simulator::Schedule(Seconds(stopTime),
-                            &NetDevice::SetAttribute,
-                            device_map[key.str()].Get(0),
-                            "ReceiveErrorModel",
-                            PointerValue(0));
+                            &Ipv4::SetUp,
+                            node_map[u]->GetObject<Ipv4>(),
+                            iface_nums[u][v]);
+
+        Simulator::Schedule(Seconds(stopTime),
+                            &Ipv4::SetUp,
+                            node_map[v]->GetObject<Ipv4>(),
+                            iface_nums[v][u]);
         //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     }
 
