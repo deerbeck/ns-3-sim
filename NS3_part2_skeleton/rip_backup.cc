@@ -282,8 +282,8 @@ main(int argc, char* argv[])
     for (auto it = gateways.begin(); it != gateways.end(); it++)
     {
         //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Your code goes here
-        Ptr<Node> hostNode = node_map[it->first];     
-        Ptr<Node> gatewayNode = node_map[it->second]; 
+        Ptr<Node> hostNode = node_map[it->first];
+        Ptr<Node> gatewayNode = node_map[it->second];
 
         Ptr<Ipv4> ipv4Host = hostNode->GetObject<Ipv4>();
         Ptr<Ipv4> ipv4Gateway = gatewayNode->GetObject<Ipv4>();
@@ -431,3 +431,4 @@ main(int argc, char* argv[])
         Simulator::Destroy();
         return 0;
     }
+}
