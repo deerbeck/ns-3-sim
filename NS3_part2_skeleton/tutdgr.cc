@@ -2,31 +2,38 @@
 // Created by developer on 6/22/20.
 //
 // #include "/home/developer/jsoncpp/include/json/json.h"
-#include <json/json.h>
-#include <fstream>
-#include <iostream>
+#include "ns3/applications-module.h"
+#include "ns3/core-module.h"
+#include "ns3/csma-module.h"
+#include "ns3/flow-monitor-helper.h"
+#include "ns3/internet-apps-module.h"
+#include "ns3/internet-module.h"
+#include "ns3/ipv4-global-routing-helper.h"
+#include "ns3/network-module.h"
+#include "ns3/point-to-point-module.h"
 #include <ns3/ipv4-l3-protocol.h>
 
+#include <fstream>
+#include <iostream>
+#include <json/json.h>
 #include <string>
 #include <unordered_map>
 
-#include "ns3/core-module.h"
-#include "ns3/network-module.h"
-#include "ns3/internet-module.h"
-#include "ns3/point-to-point-module.h"
-#include "ns3/applications-module.h"
-#include "ns3/flow-monitor-helper.h"
-#include "ns3/ipv4-global-routing-helper.h"
-#include "ns3/internet-apps-module.h"
-#include "ns3/csma-module.h"
-
 using namespace ns3;
-NS_LOG_COMPONENT_DEFINE ("SimpleGlobalRoutingExample");
+NS_LOG_COMPONENT_DEFINE("SimpleGlobalRoutingExample");
 
-int main(int argc, char *argv[]) {
+void
+TraceRtt(std::ostream* os, Time rtt)
+{
+    *os << Simulator::Now().GetSeconds() << "\t" << rtt.GetMilliSeconds() << " ms" << std::endl;
+}
+
+int
+main(int argc, char* argv[])
+{
     // Set up some default values for the simulation.  Use the
-    Config::SetDefault ("ns3::OnOffApplication::PacketSize", UintegerValue (210));
-    Config::SetDefault ("ns3::OnOffApplication::DataRate", StringValue ("448kb/s"));
+    Config::SetDefault("ns3::OnOffApplication::PacketSize", UintegerValue(210));
+    Config::SetDefault("ns3::OnOffApplication::DataRate", StringValue("448kb/s"));
     // bool enableFlowMonitor = true;
 
     /*
@@ -35,8 +42,9 @@ int main(int argc, char *argv[]) {
     Json::Value root;
     std::ifstream config_file;
     config_file.exceptions(std::ios::failbit | std::ios::badbit);
-    config_file.open("/Path/to/the/config/file.json", std::ifstream::binary);
-    std::cout << "Opening succeeded: " << config_file.is_open() << " Is bad? " << config_file.bad() << " Is fail? " << config_file.fail() << std::endl;
+    config_file.open("./scratch/topology.json", std::ifstream::binary);
+    std::cout << "Opening succeeded: " << config_file.is_open() << " Is bad? " << config_file.bad()
+              << " Is fail? " << config_file.fail() << std::endl;
     config_file >> root;
     /*
      * Get handles to the different entities of the JSON file. Those are:
@@ -58,10 +66,13 @@ int main(int argc, char *argv[]) {
     /*
      * Create the nodes in the network.
      */
-    NS_LOG_INFO ("Create nodes.");
+    NS_LOG_INFO("Create nodes.");
     NodeContainer c;
     //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Your code goes here
-
+    for (int i = 0; i < (int)j_nodes.size(); i++)
+    {
+        c.Create(1);
+    }
     //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     /*
@@ -72,9 +83,10 @@ int main(int argc, char *argv[]) {
      * etc.) are added to the nodes during the rest of this example.
      */
     std::unordered_map<std::string, Ptr<Node>> node_map;
-    for(int i=0; i < (int)j_nodes.size(); i++) {
+    for (int i = 0; i < (int)j_nodes.size(); i++)
+    {
         //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Your code goes here
-
+        node_map[j_nodes[i]["id"].asString()] = c.Get(i);
         //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     }
 
@@ -84,9 +96,15 @@ int main(int argc, char *argv[]) {
      * create a corresponding identifier for the edges.
      */
     std::unordered_map<std::string, NodeContainer> edges;
-    for(int i=0; i < (int)j_links.size(); i++) {
+    for (int i = 0; i < (int)j_links.size(); i++)
+    {
         //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Your code goes here
-
+        std::string source = j_links[i]["source"].asString();
+        std::string target = j_links[i]["target"].asString();
+        NodeContainer nc;
+        nc.Add(node_map[source]);
+        nc.Add(node_map[target]);
+        edges[source + target] = nc;
         //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     }
 
@@ -94,7 +112,7 @@ int main(int argc, char *argv[]) {
      * Install the internet stack on all nodes.
      */
     InternetStackHelper internet;
-    internet.Install (c);
+    internet.Install(c);
 
     /*
      * Create the physical channels (point-to-point links, duplex). Iterate over the
@@ -115,29 +133,39 @@ int main(int argc, char *argv[]) {
     PointToPointHelper p2p;
     std::unordered_map<std::string, NetDeviceContainer> device_map;
     std::unordered_map<std::string, std::unordered_map<std::string, int>> iface_nums;
-    for(int i=0; i < (int)j_links.size(); i++) {
+    for (int i = 0; i < (int)j_links.size(); i++)
+    {
         std::stringstream key;
         std::string u = j_links[i]["source"].asString();
         std::string v = j_links[i]["target"].asString();
         key << u << v;
         //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Your code goes here
-        // correctly configure the links
+        p2p.SetDeviceAttribute("DataRate", StringValue(j_links[i]["DataRate"].asString()));
+        p2p.SetChannelAttribute("Delay", StringValue(j_links[i]["Delay"].asString()));
+        NetDeviceContainer devices = p2p.Install(edges[u + v]);
+        device_map[u + v] = devices;
         //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-        if(iface_nums.find(u) == iface_nums.end()) {
+        if (iface_nums.find(u) == iface_nums.end())
+        {
             std::unordered_map<std::string, int> target;
             // THe first if index is loopback, thus start with one.
             target.emplace(v, 1);
             iface_nums.emplace(u, target);
-        } else {
+        }
+        else
+        {
             iface_nums.at(u).emplace(v, iface_nums.at(u).size() + 1);
         }
-        if(iface_nums.find(v) == iface_nums.end()) {
+        if (iface_nums.find(v) == iface_nums.end())
+        {
             std::unordered_map<std::string, int> target;
             // THe first if index is loopback, thus start with one.
             target.emplace(u, 1);
             iface_nums.emplace(v, target);
-        } else {
+        }
+        else
+        {
             iface_nums.at(v).emplace(u, iface_nums.at(v).size() + 1);
         }
     }
@@ -154,18 +182,21 @@ int main(int argc, char *argv[]) {
      */
     Ipv4AddressHelper ipv4;
     std::unordered_map<std::string, Ipv4InterfaceContainer> out_iface;
-    for(int i=0; i < (int)j_links.size(); i++) {
+    for (int i = 0; i < (int)j_links.size(); i++)
+    {
         //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Your code goes here
+        ipv4.SetBase(Ipv4Address(j_links[i]["Network"].asString().c_str()), "255.255.255.0");
+        out_iface[j_links[i]["source"].asString()] = ipv4.Assign(
+            device_map[j_links[i]["source"].asString() + j_links[i]["target"].asString()]);
 
         //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
     }
 
     /*
      * Populate the routing tables.
      */
     //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Your code goes here
-
+    Ipv4GlobalRoutingHelper::PopulateRoutingTables();
     //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     /*
@@ -178,20 +209,52 @@ int main(int argc, char *argv[]) {
      */
     std::cout << "configure applications" << std::endl;
     NS_LOG_INFO("Create Applications");
-    for(int i=0; i < (int)j_flows.size(); i++) {
+    for (int i = 0; i < (int)j_flows.size(); i++)
+    {
         int port = j_flows[i]["DstPort"].asInt();
         std::string u = j_flows[i]["Source"].asString();
         std::string v = j_flows[i]["Sink"].asString();
         std::stringstream key;
         key << u << v;
 
-        if(j_flows[i]["Type"].asString() == "OnOff") {
+        if (j_flows[i]["Type"].asString() == "OnOff")
+        {
             //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Your code goes here
+            OnOffHelper onOff("ns3::UdpSocketFactory",
+                              InetSocketAddress(out_iface[v].GetAddress(0), port));
+            onOff.SetAttribute("DataRate", StringValue(j_flows[i]["DataRate"].asString()));
+            onOff.SetAttribute("PacketSize", UintegerValue(1024));
+            ApplicationContainer app = onOff.Install(node_map[u]);
+            app.Start(Seconds(j_flows[i]["StartTime"].asDouble()));
+            app.Stop(Seconds(j_flows[i]["StopTime"].asDouble()));
 
+            PacketSinkHelper sink("ns3::UdpSocketFactory",
+                                  InetSocketAddress(Ipv4Address::GetAny(), port));
+            ApplicationContainer sinkApp = sink.Install(node_map[v]);
+            sinkApp.Start(Seconds(j_flows[i]["StartTime"].asDouble()));
+            sinkApp.Stop(Seconds(j_flows[i]["StopTime"].asDouble()));
             //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
         }
-        if(j_flows[i]["Type"].asString() == "Ping") {
+        if (j_flows[i]["Type"].asString() == "Ping")
+        {
             //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Your code goes here
+            PingHelper ping(out_iface[v].GetAddress(0),
+                            node_map[u]->GetObject<Ipv4>()->GetAddress(1, 0).GetLocal());
+
+            ping.SetAttribute("StartTime", TimeValue(Seconds(j_flows[i]["StartTime"].asDouble())));
+            ping.SetAttribute("StopTime", TimeValue(Seconds(j_flows[i]["StopTime"].asDouble())));
+            ApplicationContainer app = ping.Install(node_map[u]);
+
+            std::stringstream fname_rtt;
+
+            fname_rtt << "output/dgr/" << key.str() << ".rtt";
+            AsciiTraceHelper asciiTraceHelper;
+            Ptr<OutputStreamWrapper> streamRtt = asciiTraceHelper.CreateFileStream(fname_rtt.str());
+
+            // Connect the trace source for RTT to the TraceRtt function
+            app.Get(0)->TraceConnectWithoutContext(
+                "Rtt",
+                MakeBoundCallback(&TraceRtt, streamRtt->GetStream()));
 
             //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
         }
@@ -200,7 +263,8 @@ int main(int argc, char *argv[]) {
     /*
      * Schedule the events.
      */
-    for(int i = 0; i < (int)j_fails.size(); i++) {
+    for (int i = 0; i < (int)j_fails.size(); i++)
+    {
         //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Your code goes here
 
         //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
@@ -212,16 +276,27 @@ int main(int argc, char *argv[]) {
     FlowMonitorHelper flowmonHelper;
     flowmonHelper.InstallAll();
 
-    NS_LOG_INFO ("Run Simulation.");
-    Simulator::Stop (Seconds (100));
-    Simulator::Run ();
-    NS_LOG_INFO ("Done.");
+    NS_LOG_INFO("Run Simulation.");
+    Simulator::Stop(Seconds(300));
+    Simulator::Run();
+    NS_LOG_INFO("Done.");
 
     /*
      * Configure flow monitor to write output to xml file
      */
     //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Your code goes here
-
+    for (int i = 0; i < (int)j_fails.size(); i++)
+    {
+        std::string u = j_fails[i]["source"].asString();
+        std::string v = j_fails[i]["target"].asString();
+        std::stringstream key;
+        key << u << v;
+        Simulator::Schedule(Seconds(j_fails[i]["Time"].asDouble()),
+                            &NetDevice::SetAttribute,
+                            device_map[key.str()].Get(0),
+                            "ReceiveErrorModel",
+                            PointerValue(CreateObject<RateErrorModel>()));
+    }
     //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     Simulator::Destroy();
