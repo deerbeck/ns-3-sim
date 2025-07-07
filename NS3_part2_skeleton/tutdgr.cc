@@ -23,9 +23,10 @@ using namespace ns3;
 NS_LOG_COMPONENT_DEFINE("SimpleGlobalRoutingExample");
 
 void
-TraceRtt(std::ostream* os, Time rtt)
+TraceRtt(std::ostream* os, unsigned short packetSize, Time rtt)
 {
-    *os << Simulator::Now().GetSeconds() << "\t" << rtt.GetMilliSeconds() << " ms" << std::endl;
+    *os << Simulator::Now().GetSeconds() << "\t" << packetSize << " bytes\t"
+        << rtt.GetMilliSeconds() << " ms" << std::endl;
 }
 
 int
@@ -220,6 +221,8 @@ main(int argc, char* argv[])
         if (j_flows[i]["Type"].asString() == "OnOff")
         {
             //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Your code goes here
+
+            std::cout << "Create OnOff application from " << u << " to " << v << std::endl;
             OnOffHelper onOff("ns3::UdpSocketFactory",
                               InetSocketAddress(out_iface[v].GetAddress(0), port));
             onOff.SetAttribute("DataRate", StringValue(j_flows[i]["DataRate"].asString()));
@@ -238,6 +241,7 @@ main(int argc, char* argv[])
         if (j_flows[i]["Type"].asString() == "Ping")
         {
             //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Your code goes here
+            std::cout << "Create Ping application from " << u << " to " << v << std::endl;
             PingHelper ping(out_iface[v].GetAddress(0),
                             node_map[u]->GetObject<Ipv4>()->GetAddress(1, 0).GetLocal());
 
@@ -251,6 +255,7 @@ main(int argc, char* argv[])
             AsciiTraceHelper asciiTraceHelper;
             Ptr<OutputStreamWrapper> streamRtt = asciiTraceHelper.CreateFileStream(fname_rtt.str());
 
+            std::cout << "Create RTT trace file: " << fname_rtt.str() << std::endl;
             // Connect the trace source for RTT to the TraceRtt function
             app.Get(0)->TraceConnectWithoutContext(
                 "Rtt",
@@ -263,9 +268,19 @@ main(int argc, char* argv[])
     /*
      * Schedule the events.
      */
+    std::cout << "configure failures" << std::endl;
     for (int i = 0; i < (int)j_fails.size(); i++)
     {
         //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Your code goes here
+        std::string u = j_fails[i]["source"].asString();
+        std::string v = j_fails[i]["target"].asString();
+        std::stringstream key;
+        key << u << v;
+        Simulator::Schedule(Seconds(j_fails[i]["Time"].asDouble()),
+                            &NetDevice::SetAttribute,
+                            device_map[key.str()].Get(0),
+                            "ReceiveErrorModel",
+                            PointerValue(CreateObject<RateErrorModel>()));
 
         //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     }
@@ -276,6 +291,7 @@ main(int argc, char* argv[])
     FlowMonitorHelper flowmonHelper;
     flowmonHelper.InstallAll();
 
+    std::cout << "Run simulation" << std::endl;
     NS_LOG_INFO("Run Simulation.");
     Simulator::Stop(Seconds(300));
     Simulator::Run();
@@ -285,18 +301,7 @@ main(int argc, char* argv[])
      * Configure flow monitor to write output to xml file
      */
     //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Your code goes here
-    for (int i = 0; i < (int)j_fails.size(); i++)
-    {
-        std::string u = j_fails[i]["source"].asString();
-        std::string v = j_fails[i]["target"].asString();
-        std::stringstream key;
-        key << u << v;
-        Simulator::Schedule(Seconds(j_fails[i]["Time"].asDouble()),
-                            &NetDevice::SetAttribute,
-                            device_map[key.str()].Get(0),
-                            "ReceiveErrorModel",
-                            PointerValue(CreateObject<RateErrorModel>()));
-    }
+    flowmonHelper.SerializeToXmlFile("output/flow-monitor-output.xml", true, true);
     //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     Simulator::Destroy();
