@@ -274,14 +274,26 @@ main(int argc, char* argv[])
         //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Your code goes here
         std::string u = j_fails[i]["source"].asString();
         std::string v = j_fails[i]["target"].asString();
+        double startTime = j_fails[i]["StartTime"].asDouble();
+        double stopTime = j_fails[i]["StopTime"].asDouble();
+
         std::stringstream key;
         key << u << v;
-        Simulator::Schedule(Seconds(j_fails[i]["Time"].asDouble()),
+
+        std::cout << "Schedule failure from " << u << " to " << v << " at " << startTime << "s for "
+                  << stopTime - startTime << "s" << std::endl;
+        std::cout << device_map[key.str()].Get(0)->GetNode()->GetId() << std::endl;
+        Simulator::Schedule(Seconds(startTime),
                             &NetDevice::SetAttribute,
                             device_map[key.str()].Get(0),
                             "ReceiveErrorModel",
                             PointerValue(CreateObject<RateErrorModel>()));
 
+        Simulator::Schedule(Seconds(stopTime),
+                            &NetDevice::SetAttribute,
+                            device_map[key.str()].Get(0),
+                            "ReceiveErrorModel",
+                            PointerValue(0));
         //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     }
 
