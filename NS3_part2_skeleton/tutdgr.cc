@@ -23,10 +23,9 @@ using namespace ns3;
 NS_LOG_COMPONENT_DEFINE("SimpleGlobalRoutingExample");
 
 void
-TraceRtt(std::ostream* os, unsigned short packetSize, Time rtt)
+TraceRtt(std::ostream* os, Time rtt)
 {
-    *os << Simulator::Now().GetSeconds() << "\t" << packetSize << " bytes\t"
-        << rtt.GetMilliSeconds() << " ms" << std::endl;
+    *os << Simulator::Now().GetSeconds() << "\t" << rtt.GetMilliSeconds() << " ms" << std::endl;
 }
 
 int
@@ -242,7 +241,7 @@ main(int argc, char* argv[])
         {
             //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Your code goes here
             std::cout << "Create Ping application from " << u << " to " << v << std::endl;
-            PingHelper ping(out_iface[v].GetAddress(1));
+            PingHelper ping(out_iface[v].GetAddress(0));
 
             ping.SetAttribute("StartTime", TimeValue(Seconds(j_flows[i]["StartTime"].asDouble())));
             ping.SetAttribute("StopTime", TimeValue(Seconds(j_flows[i]["StopTime"].asDouble())));
