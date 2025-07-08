@@ -275,11 +275,13 @@ main(int argc, char* argv[])
         std::cout << "Assign IP address to link between " << j_links[i]["source"].asString()
                   << " and " << j_links[i]["target"].asString() << " with network "
                   << j_links[i]["Network"].asString() << std::endl;
+
+        std::string source = j_links[i]["source"].asString();
+        std::string target = j_links[i]["target"].asString();
+
         ipv4.SetBase(Ipv4Address(j_links[i]["Network"].asString().c_str()), "255.255.255.0");
-        Ipv4InterfaceContainer interfaces = ipv4.Assign(
-            device_map[j_links[i]["source"].asString() + j_links[i]["target"].asString()]);
-        out_iface[j_links[i]["source"].asString()] = interfaces;
-        gateways[j_links[i]["source"].asString()] = interfaces.GetAddress(0);
+        out_iface[source] = ipv4.Assign(device_map[source + target]);
+        gateways[source] = out_iface[source].GetAddress(0);
         //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     }
 
@@ -293,21 +295,21 @@ main(int argc, char* argv[])
         //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Your code goes here
         Ptr<Node> hostNode = node_map[it->first];
         Ptr<Ipv4> ipv4 = hostNode->GetObject<Ipv4>();
-        std::cout << "Set default route for host " << it->first << " to gateway " << it->second
-                  << std::endl;
-        Ptr<Ipv4RoutingProtocol> routingProtocol = ipv4->GetRoutingProtocol();
-        std::cout << "Routing protocol: " << routingProtocol.GetInstanceTypeId() << std::endl;
-        if (!routingProtocol)
-        {
-            std::cerr << "Error: Routing protocol is nullptr!" << std::endl;
-        }
         Ptr<Ipv4StaticRouting> staticRouting;
-        staticRouting = Ipv4RoutingHelper::GetRouting<Ipv4StaticRouting>(routingProtocol);
-        if (staticRouting)
+        staticRouting =
+            Ipv4RoutingHelper::GetRouting<Ipv4StaticRouting>(ipv4->GetRoutingProtocol());
+        if (!staticRouting)
         {
-            std::cout << "staticRouting: " << staticRouting << std::endl;
+            std::cout << "Error: Could not get static routing protocol for node " << it->first
+                      << std::endl;
         }
-        staticRouting->SetDefaultRoute(it->second, 1);
+        else
+        {
+            std::cout << "Set default route for host " << it->first << " to " << it->second
+                      << std::endl;
+            staticRouting->SetDefaultRoute(it->second, 1);
+        }
+
         //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     }
 
@@ -390,10 +392,6 @@ main(int argc, char* argv[])
                             &Ipv4::SetUp,
                             node_map[v]->GetObject<Ipv4>(),
                             iface_nums[v][u]);
-        Simulator::Schedule(Seconds(startTime + 0.000001),
-                            &Ipv4GlobalRoutingHelper::RecomputeRoutingTables);
-        Simulator::Schedule(Seconds(stopTime + 0.000001),
-                            &Ipv4GlobalRoutingHelper::RecomputeRoutingTables);
         //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     }
 
@@ -421,7 +419,7 @@ main(int argc, char* argv[])
     }
 
     NS_LOG_INFO("Run Simulation.");
-    Simulator::Stop(Seconds(100));
+    Simulator::Stop(Seconds(400));
     Simulator::Run();
     NS_LOG_INFO("Done.");
 

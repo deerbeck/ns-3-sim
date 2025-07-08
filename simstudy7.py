@@ -57,7 +57,7 @@ def plot_rtt_over_time(rtt_data):
     plt.show()
 
 
-def task_7_3():
+def task_7_x(xml_file, tsv_file):
     xml_file = "output/dgr/FLOW-MONITOR-OUTPUT.XML"
     tsv_file = "output/dgr/SRCDST.RTT"
 
@@ -75,5 +75,12 @@ def task_7_3():
     plot_dropped_vs_received(flow_data)
     plot_rtt_over_time(rtt_data)
 
+def task_7_3():
+    task_7_x("output/dgr/FLOW-MONITOR-OUTPUT.XML", "output/dgr/SRCDST.RTT")
+    
+def task_7_4():
+    task_7_x("output/rip/FLOW-MONITOR-OUTPUT.XML", "output/rip/SRCDST.RTT")
+
 if __name__ == "__main__":
-    task_7_1_5()
+    # task_7_3()
+    task_7_4()
