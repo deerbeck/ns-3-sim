@@ -213,11 +213,15 @@ main(int argc, char* argv[])
     //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Your code goes here
     for (auto it = hosts.begin(); it != hosts.end(); it++)
     {
+        std::cout << "Exclude host " << it->first << " from RIP routing." << std::endl;
+
         Ptr<Node> host = it->second;
         for (auto iface_it = iface_nums.at(it->first).begin();
              iface_it != iface_nums.at(it->first).end();
              iface_it++)
         {
+            std::cout << "Excluding interface " << iface_it->first << " with index "
+                      << iface_it->second << std::endl;
             int iface_index = iface_it->second;
             ripRouting.ExcludeInterface(host, iface_index);
         }
@@ -230,14 +234,14 @@ main(int argc, char* argv[])
     //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Your code goes here
     for (int i = 0; i < (int)j_links.size(); i++)
     {
-        std::cout << "Set metric for link " << j_links[i]["source"].asString() << " to "
-                  << j_links[i]["target"].asString() << std::endl;
         std::string source = j_links[i]["source"].asString();
         std::string target = j_links[i]["target"].asString();
         std::string latency_str = j_links[i]["Delay"].asString();
-        double latency = std::stod(latency_str.substr(0, latency_str.size() - 2));
-        ripRouting.SetInterfaceMetric(node_map[source], iface_nums[source][target], latency);
-        ripRouting.SetInterfaceMetric(node_map[target], iface_nums[target][source], latency);
+        uint8_t latency = (std::stod(latency_str.substr(0, latency_str.size() - 2)) * 10);
+        std::cout << "Set metric for link " << source << " to " << target << " to " << unsigned(latency)
+                  << std::endl;
+        ripRouting.SetInterfaceMetric(node_map[source], iface_nums[source][target], (latency));
+        ripRouting.SetInterfaceMetric(node_map[target], iface_nums[target][source], (latency));
     }
     //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     /*
@@ -282,6 +286,8 @@ main(int argc, char* argv[])
         ipv4.SetBase(Ipv4Address(j_links[i]["Network"].asString().c_str()), "255.255.255.0");
         out_iface[source] = ipv4.Assign(device_map[source + target]);
         gateways[source] = out_iface[source].GetAddress(0);
+
+        std::cout << "Set gateway for host " << source << " to " << gateways[source] << std::endl;
         //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     }
 
@@ -352,6 +358,8 @@ main(int argc, char* argv[])
         {
             //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Your code goes here
             PingHelper ping(out_iface[v].GetAddress(0));
+            std::cout << "Ping application installed on node " << u << " targeting IP "
+                      << out_iface[v].GetAddress(0) << std::endl;
             ping.SetAttribute("StartTime", TimeValue(Seconds(j_flows[i]["StartTime"].asDouble())));
             ping.SetAttribute("StopTime", TimeValue(Seconds(j_flows[i]["StopTime"].asDouble())));
             ApplicationContainer app = ping.Install(node_map[u]);
@@ -376,6 +384,8 @@ main(int argc, char* argv[])
         double startTime = j_fails[i]["StartTime"].asDouble();
         double stopTime = j_fails[i]["StopTime"].asDouble();
 
+        std::cout << "Schedule link failure for link " << u << " to " << v
+                  << " at time " << startTime << " and restore at time " << stopTime << std::endl;
         Simulator::Schedule(Seconds(startTime),
                             &Ipv4::SetDown,
                             node_map[u]->GetObject<Ipv4>(),
