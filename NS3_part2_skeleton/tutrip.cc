@@ -210,7 +210,18 @@ main(int argc, char* argv[])
      * Exclude all host interfaces from the RIP routing. The host interfaces will
      * be configured with static default routes.
      */
-    //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Your code goes here   
+    //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Your code goes here
+    for (auto it = hosts.begin(); it != hosts.end(); it++)
+    {
+        Ptr<Node> host = it->second;
+        for (auto iface_it = iface_nums.at(it->first).begin();
+             iface_it != iface_nums.at(it->first).end();
+             iface_it++)
+        {
+            int iface_index = iface_it->second;
+            ripRouting.ExcludeInterface(host, iface_index);
+        }
+    }
     //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     /*
@@ -223,7 +234,8 @@ main(int argc, char* argv[])
                   << j_links[i]["target"].asString() << std::endl;
         std::string source = j_links[i]["source"].asString();
         std::string target = j_links[i]["target"].asString();
-        double latency = j_links[i]["Delay"].asString();
+        std::string latency_str = j_links[i]["Delay"].asString();
+        double latency = std::stod(latency_str.substr(0, latency_str.size() - 2));
         ripRouting.SetInterfaceMetric(node_map[source], iface_nums[source][target], latency);
         ripRouting.SetInterfaceMetric(node_map[target], iface_nums[target][source], latency);
     }
@@ -260,6 +272,9 @@ main(int argc, char* argv[])
     for (int i = 0; i < (int)j_links.size(); i++)
     {
         //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Your code goes here
+        std::cout << "Assign IP address to link between " << j_links[i]["source"].asString()
+                  << " and " << j_links[i]["target"].asString() << " with network "
+                  << j_links[i]["Network"].asString() << std::endl;
         ipv4.SetBase(Ipv4Address(j_links[i]["Network"].asString().c_str()), "255.255.255.0");
         Ipv4InterfaceContainer interfaces = ipv4.Assign(
             device_map[j_links[i]["source"].asString() + j_links[i]["target"].asString()]);
@@ -276,8 +291,22 @@ main(int argc, char* argv[])
     for (auto it = gateways.begin(); it != gateways.end(); it++)
     {
         //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Your code goes here
-        Ptr<Ipv4StaticRouting> staticRouting = Ipv4RoutingHelper::GetRouting<Ipv4StaticRouting>(
-            node_map[it->first]->GetObject<Ipv4>()->GetRoutingProtocol());
+        Ptr<Node> hostNode = node_map[it->first];
+        Ptr<Ipv4> ipv4 = hostNode->GetObject<Ipv4>();
+        std::cout << "Set default route for host " << it->first << " to gateway " << it->second
+                  << std::endl;
+        Ptr<Ipv4RoutingProtocol> routingProtocol = ipv4->GetRoutingProtocol();
+        std::cout << "Routing protocol: " << routingProtocol.GetInstanceTypeId() << std::endl;
+        if (!routingProtocol)
+        {
+            std::cerr << "Error: Routing protocol is nullptr!" << std::endl;
+        }
+        Ptr<Ipv4StaticRouting> staticRouting;
+        staticRouting = Ipv4RoutingHelper::GetRouting<Ipv4StaticRouting>(routingProtocol);
+        if (staticRouting)
+        {
+            std::cout << "staticRouting: " << staticRouting << std::endl;
+        }
         staticRouting->SetDefaultRoute(it->second, 1);
         //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     }
