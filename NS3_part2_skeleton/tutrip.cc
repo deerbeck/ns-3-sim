@@ -117,6 +117,10 @@ main(int argc, char* argv[])
         else if (j_nodes[i]["type"].asString() == host_identifier)
         {
             hosts[id] = all_nodes.Get(i);
+            for (auto it : hosts)
+            {
+                std::cout << "Host: " << it.first << " with id " << it.second->GetId() << std::endl;
+            }
         }
         //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     }
@@ -238,8 +242,8 @@ main(int argc, char* argv[])
         std::string target = j_links[i]["target"].asString();
         std::string latency_str = j_links[i]["Delay"].asString();
         uint8_t latency = (std::stod(latency_str.substr(0, latency_str.size() - 2)) * 10);
-        std::cout << "Set metric for link " << source << " to " << target << " to " << unsigned(latency)
-                  << std::endl;
+        std::cout << "Set metric for link " << source << " to " << target << " to "
+                  << unsigned(latency) << std::endl;
         ripRouting.SetInterfaceMetric(node_map[source], iface_nums[source][target], (latency));
         ripRouting.SetInterfaceMetric(node_map[target], iface_nums[target][source], (latency));
     }
@@ -287,10 +291,19 @@ main(int argc, char* argv[])
         out_iface[source] = ipv4.Assign(device_map[source + target]);
         gateways[source] = out_iface[source].GetAddress(0);
 
-        std::cout << "Set gateway for host " << source << " to " << gateways[source] << std::endl;
+        std::cout << "Set gateway for source " << source << " to " << gateways[source] << std::endl;
         //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     }
 
+    /* Debug
+     */
+    for (int i = 0; i < (int)j_links.size(); i++)
+    {
+        std::string source = j_links[i]["source"].asString();
+        std::string target = j_links[i]["target"].asString();
+        std::cout << "Link: " << source << " to " << target << " with interface number "
+                  << iface_nums[source][target] << std::endl;
+    }
     /*
      * Configure the static default routes for the hosts. The default routes
      * correspond to the next hop that they should send the traffic to. In our
@@ -384,8 +397,8 @@ main(int argc, char* argv[])
         double startTime = j_fails[i]["StartTime"].asDouble();
         double stopTime = j_fails[i]["StopTime"].asDouble();
 
-        std::cout << "Schedule link failure for link " << u << " to " << v
-                  << " at time " << startTime << " and restore at time " << stopTime << std::endl;
+        std::cout << "Schedule link failure for link " << u << " to " << v << " at time "
+                  << startTime << " and restore at time " << stopTime << std::endl;
         Simulator::Schedule(Seconds(startTime),
                             &Ipv4::SetDown,
                             node_map[u]->GetObject<Ipv4>(),
